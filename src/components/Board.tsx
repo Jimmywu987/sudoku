@@ -9,16 +9,17 @@ type allLines = {
   lowerHorizontalLineNums: eachLine;
 };
 
-const Board = ({
-  data: { sudokuArray, setSudokuArray, gameStarted },
+const INTEGER_REGEX = /^[1-9]*$/;
+
+export const Board = ({
+  data: { sudokuBoard, setSudokuBoard, gameStarted },
 }: {
   data: {
-    sudokuArray: (number | string)[];
-    setSudokuArray: Dispatch<React.SetStateAction<(number | string)[]>>;
+    sudokuBoard: string[];
+    setSudokuBoard: Dispatch<React.SetStateAction<string[]>>;
     gameStarted: boolean;
   };
 }) => {
-  const checkIfInteger = /^[1-9]*$/;
   const allLines = useMemo(() => {
     const allLines: allLines = {
       upperHorizontalLineNums: {
@@ -69,7 +70,7 @@ const Board = ({
         gameStarted ? "border-gray-700" : "border-gray-200"
       } mx-2`}
     >
-      {sudokuArray.map((each: string | number, indx: number) =>
+      {sudokuBoard.map((each: string | number, indx: number) =>
         each === "" ? (
           <input
             disabled={!gameStarted}
@@ -80,11 +81,11 @@ const Board = ({
             value={each}
             type="text"
             onChange={({ target }) =>
-              setSudokuArray((arr) => {
-                if (target.value.match(checkIfInteger)) {
-                  arr[indx] = Number(target.value);
+              setSudokuBoard((prevBoard) => {
+                if (target.value.match(INTEGER_REGEX)) {
+                  prevBoard[indx] = target.value;
                 }
-                return [...arr];
+                return [...prevBoard];
               })
             }
           />
@@ -102,5 +103,3 @@ const Board = ({
     </div>
   );
 };
-
-export default Board;
