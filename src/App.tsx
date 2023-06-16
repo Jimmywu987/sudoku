@@ -1,51 +1,34 @@
 import { useState, useMemo, useEffect } from "react";
-import Board from "./components/Board";
-import Buttons from "./components/Buttons";
+import { Board } from "components/Board";
+import { ButtonPanel } from "components/ButtonPanel";
+import { cn } from "utils/cn";
+import { GameStatusEnums } from "enums/GameStatusEnums";
+import { gameStatusDisplayMapper } from "utils/gameStatusDisplayMapper";
+import { DifficultyEnums } from "enums/DifficultyEnums";
+import { difficultyMapper } from "utils/difficultyMapper";
+import { EMPTY_BOARD } from "constants/emptyBoard";
+import { ONE_TO_NINE } from "constants/oneToNine";
+import { oneToNineType } from "types";
+
+import { checkAllGridFilled } from "utils/checkAllGridFilled";
+import { initGridRecords } from "utils/initGridRecords";
 
 function App() {
-  const [sudokuArray, setSudokuArray] = useState(new Array(9 * 9).fill(""));
-  const [storedPlaySudoku, setStoredPlaySudoku] = useState<number[]>([]);
-  const [difficulty, setDifficulty] = useState<string>("4");
+  const [sudokuBoard, setSudokuBoard] = useState(EMPTY_BOARD);
+  const [storedPlaySudoku, setStoredPlaySudoku] = useState<string[]>([]);
+
+  const [difficulty, setDifficulty] = useState<DifficultyEnums>(
+    DifficultyEnums.EASY
+  );
   const [gameStarted, setGameStarted] = useState<boolean>(false);
-  const [isSolved, getIsSolved] = useState<boolean>(false);
-  const [solvedStatus, setSolvedStatus] = useState<string>("");
 
-  const checkWithinGrid = (index: number) => {
-    let base = {
-      "18": 0,
-      "19": 3,
-      "20": 6,
-      "21": 27,
-      "22": 30,
-      "23": 33,
-      "24": 54,
-      "25": 57,
-      "26": 60,
-    };
-    let baseValue = Object.values(base);
-    let baseKeys = Object.keys(base);
-    for (let i = 0; i < baseValue.length; i++) {
-      let head = baseValue[i];
-      let tail = baseValue[i] + 2;
-      if (
-        (head <= index && index <= tail) ||
-        (head + 9 <= index && index <= tail + 9) ||
-        (head + 18 <= index && index <= tail + 18)
-      ) {
-        return Number(baseKeys[i]);
-      }
-    }
-  };
+  const [status, setStatus] = useState<GameStatusEnums>(
+    GameStatusEnums.NOT_STARTED
+  );
 
-  const eachTracking = useMemo(() => {
-    let record: any = {};
-    for (let i = 0; i < 9 * 9; i++) {
-      record[`${i}`] = [Math.floor(i / 9), (i % 9) + 9, checkWithinGrid(i)];
-    }
-    return record;
-  }, []);
+  const gridRecords = useMemo(() => initGridRecords(), []);
 
-  const arrChecking = (arr: any[]) => {
+  const handleCheck = (check: number[]) => {
     const number: any = {
       "1": 1,
       "2": 1,
@@ -57,182 +40,177 @@ function App() {
       "8": 1,
       "9": 1,
     };
-    for (let i = 0; i < arr.length; i++) {
-      if (number[`${arr[i]}`]) {
-        number[`${arr[i]}`]--;
-      } else if (number[`${arr[i]}`] === 0) {
+    for (let i = 0; i < check.length; i++) {
+      if (number[`${check[i]}`]) {
+        number[`${check[i]}`]--;
+      } else if (number[`${check[i]}`] === 0) {
         return false;
       }
     }
-
     return true;
   };
-  const checkIfValid = (sudokuArr: (string | number)[] = sudokuArray) => {
-    let keys: string[] = Object.keys(eachTracking);
-    let values: number[][] = Object.values(eachTracking);
-    let newSudokuArr = [...sudokuArr];
 
-    for (let i = 0; i < 9 * 3; i++) {
-      let eachChecking: number[] = [];
+  const checkIfValid = (board: string[] = sudokuBoard) => {
+    const keys: string[] = Object.keys(gridRecords);
+    const values: number[][] = Object.values(gridRecords);
+    const copyBoard = [...board];
+
+    for (let i = 0; i < 27; i++) {
+      const checks: number[] = [];
       for (let x = 0; x < values.length; x++) {
         if (values[x].includes(i)) {
-          eachChecking.push(Number(keys[x]));
+          checks.push(Number(keys[x]));
         }
       }
 
-      let anotherArr: number[] = [];
-      for (let x = 0; x < newSudokuArr.length; x++) {
-        if (eachChecking.includes(x)) {
-          anotherArr.push(Number(newSudokuArr[x]));
+      const secondCheck: number[] = [];
+      for (let x = 0; x < copyBoard.length; x++) {
+        if (checks.includes(x)) {
+          secondCheck.push(Number(copyBoard[x]));
         }
       }
-      if (!arrChecking(anotherArr)) {
+      if (!handleCheck(secondCheck)) {
         return false;
       }
     }
     return true;
   };
 
-  const allFilled = (arr: (string | number)[]) => {
-    return arr.every((e) => typeof e === "number");
-  };
   useEffect(() => {
-    if (allFilled(sudokuArray)) {
-      if (checkIfValid(sudokuArray)) {
-        setSolvedStatus("Solved!");
-      } else {
-        setSolvedStatus("Not solved");
-      }
+    if (checkAllGridFilled(sudokuBoard) && checkIfValid(sudokuBoard)) {
+      setStatus(GameStatusEnums.SOLVED);
     }
-  }, [sudokuArray]);
+  }, [sudokuBoard]);
 
   const randomDrawNumber = (newArr: any, arr: any) => {
-    const number: any = {
-      "1": 0,
-      "2": 0,
-      "3": 0,
-      "4": 0,
-      "5": 0,
-      "6": 0,
-      "7": 0,
-      "8": 0,
-      "9": 0,
-    };
-    let allHave: number[] = [];
-    let first = newArr[arr[0]];
-    let second = newArr[arr[1]];
-    let third = newArr[arr[2]];
+    const oneToNine = { ...ONE_TO_NINE };
+    const allHave: number[] = [];
+    const first = newArr[arr[0]];
+    const second = newArr[arr[1]];
+    const third = newArr[arr[2]];
 
     for (let i = 1; i < 10; i++) {
       if (first.indexOf(i) !== -1) {
-        number[`${i}`]++;
+        oneToNine[i.toString() as oneToNineType]++;
       }
       if (second.indexOf(i) !== -1) {
-        number[`${i}`]++;
+        oneToNine[i.toString() as oneToNineType]++;
       }
 
       if (third.indexOf(i) !== -1) {
-        number[`${i}`]++;
+        oneToNine[i.toString() as oneToNineType]++;
       }
 
-      if (number[`${i}`] === 3) {
+      if (oneToNine[i.toString() as oneToNineType] === 3) {
         allHave.push(i);
       }
     }
     if (allHave.length === 0) {
       return "";
     }
-    let drawIndex = Math.floor(Math.random() * allHave.length);
+    const drawIndex = Math.floor(Math.random() * allHave.length);
     return allHave[drawIndex];
   };
 
-  const repeatIfFail = (play: boolean = false) => {
-    let newArr = new Array(9 * 3).fill(
+  const generateSudoku = (play = false) => {
+    const sudokuRecords = new Array(27).fill(
+      // get an array of 1 to 9
       [...Array(9)].map((_, index) => index + 1)
     );
-    let newSukodu = [...sudokuArray];
-    for (let i = 0; i < 9 * 9; i++) {
-      if (newSukodu[i] === "") {
-        let deductArr = eachTracking[`${i}`];
-        let drawnNum: number | string = randomDrawNumber(newArr, deductArr);
-        newSukodu[i] = drawnNum;
+
+    const copySudokuBoard = [...sudokuBoard];
+
+    for (let i = 0; i < 81; i++) {
+      if (copySudokuBoard[i] === "") {
+        let deductArr = gridRecords[`${i}`];
+        let drawnNum: number | string = randomDrawNumber(
+          sudokuRecords,
+          deductArr
+        );
+        copySudokuBoard[i] = drawnNum.toString();
         for (let x = 0; x < deductArr.length; x++) {
-          newArr[deductArr[x]] = newArr[deductArr[x]].filter((e: number) => {
-            return drawnNum !== e;
-          });
+          sudokuRecords[deductArr[x]] = sudokuRecords[deductArr[x]].filter(
+            (e: number) => {
+              return drawnNum !== e;
+            }
+          );
         }
       }
     }
 
-    if (newSukodu.some((e) => e === "")) {
-      repeatIfFail(play);
-    } else {
-      if (play) {
-        setStoredPlaySudoku([...newSukodu]);
-        let checkAllArr = new Array(9 * 3).fill(
-          [...Array(9)].map((_, index) => index + 1)
-        );
-        for (let i = 0; i < newSukodu.length; i++) {
-          let filterOut = Math.floor(Math.random() * 10);
-          if (filterOut < Number(difficulty)) {
-            newSukodu[i] = "";
-          } else {
-            let deductArray = eachTracking[`${i}`];
-            for (let x = 0; x < deductArray.length; x++) {
-              checkAllArr[deductArray[x]] = checkAllArr[deductArray[x]].filter(
-                (e: number) => {
-                  return Number(e) !== Number(newSukodu[i]);
-                }
-              );
-            }
+    if (copySudokuBoard.some((grid) => grid === "")) {
+      generateSudoku(play);
+      return;
+    }
+
+    if (play) {
+      setStoredPlaySudoku([...copySudokuBoard]);
+      const checkAllArr = new Array(27).fill(
+        [...Array(9)].map((_, index) => index + 1)
+      );
+      for (let i = 0; i < copySudokuBoard.length; i++) {
+        let filterOut = Math.floor(Math.random() * 10);
+        if (filterOut < difficultyMapper(difficulty)) {
+          copySudokuBoard[i] = "";
+        } else {
+          let deductArray = gridRecords[`${i}`];
+          for (let x = 0; x < deductArray.length; x++) {
+            checkAllArr[deductArray[x]] = checkAllArr[deductArray[x]].filter(
+              (e: number) => {
+                return Number(e) !== Number(copySudokuBoard[i]);
+              }
+            );
           }
         }
-        setSudokuArray(newSukodu);
-      } else {
-        setSudokuArray(newSukodu);
       }
     }
+    setSudokuBoard(copySudokuBoard);
   };
 
   const setGame = () => {
     setGameStarted(true);
     if (!gameStarted) {
-      repeatIfFail(true);
+      generateSudoku(true);
     }
   };
   const solveGame = () => {
     if (checkIfValid()) {
       if (storedPlaySudoku.length !== 0) {
-        setSudokuArray(storedPlaySudoku);
-      } else {
-        repeatIfFail();
+        setSudokuBoard(storedPlaySudoku);
+        return;
       }
-    } else {
-      setSolvedStatus("Can't be solved");
+      generateSudoku();
+      return;
     }
-    getIsSolved(true);
+    setStatus(GameStatusEnums.CAN_NOT_BE_SOLVED);
   };
   const restartGame = () => {
-    setSudokuArray(new Array(9 * 9).fill(""));
+    setSudokuBoard(EMPTY_BOARD);
     setStoredPlaySudoku([]);
     setGameStarted(false);
-    getIsSolved(false);
-    setSolvedStatus("");
+    setStatus(GameStatusEnums.NOT_STARTED);
   };
 
+  const gameStatueMessage = useMemo(
+    () => gameStatusDisplayMapper(status),
+    [status]
+  );
   return (
     <div className="flex justify-center items-center my-10 flex-col container mx-auto">
       <div className="flex flex-col items-center">
         <h1 className="text-3xl font-bold">Sudoku</h1>
         <span
-          className={`text-xl top-9 left-4 font-bold whitespace-nowrap h-6 ${
-            solvedStatus === "Solved!" ? "text-green-600" : "text-red-600"
-          }`}
+          className={cn(
+            "text-xl font-bold whitespace-nowrap h-6",
+            status === GameStatusEnums.SOLVED
+              ? "text-green-600"
+              : "text-red-600"
+          )}
         >
-          {solvedStatus}
+          {gameStatueMessage}
         </span>
       </div>
-      <Buttons
+      <ButtonPanel
         data={{
           difficulty,
           setDifficulty,
@@ -240,10 +218,16 @@ function App() {
           solveGame,
           gameStarted,
           restartGame,
-          isSolved,
+          status,
         }}
       />
-      <Board data={{ sudokuArray, setSudokuArray, gameStarted }} />
+      <Board
+        data={{
+          sudokuBoard,
+          setSudokuBoard,
+          gameStarted,
+        }}
+      />
     </div>
   );
 }
