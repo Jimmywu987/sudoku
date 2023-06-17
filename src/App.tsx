@@ -1,17 +1,21 @@
-import { useState, useMemo, useEffect } from "react";
 import { Board } from "components/Board";
 import { ButtonPanel } from "components/ButtonPanel";
-import { cn } from "utils/cn";
-import { GameStatusEnums } from "enums/GameStatusEnums";
-import { gameStatusDisplayMapper } from "utils/gameStatusDisplayMapper";
-import { DifficultyEnums } from "enums/DifficultyEnums";
-import { difficultyMapper } from "utils/difficultyMapper";
 import { EMPTY_BOARD } from "constants/emptyBoard";
-import { ONE_TO_NINE } from "constants/oneToNine";
-import { oneToNineType } from "types";
+import { ONE_TO_NINE_IN_ONE } from "constants/oneToNine";
+import { DifficultyEnums } from "enums/DifficultyEnums";
+import { GameStatusEnums } from "enums/GameStatusEnums";
+import { useEffect, useMemo, useState } from "react";
+import { oneToNineInOneType } from "types";
+import { cn } from "utils/cn";
+import { difficultyMapper } from "utils/difficultyMapper";
+import { gameStatusDisplayMapper } from "utils/gameStatusDisplayMapper";
 
+import { SUDOKU_RECORDS } from "constants/sudokuRecords";
 import { checkAllGridFilled } from "utils/checkAllGridFilled";
+import { drawNumber } from "utils/drawNumber";
+import { initAllCombinations } from "utils/initAllCombinations";
 import { initGridRecords } from "utils/initGridRecords";
+import { SelectDifficulty } from "components/SelectDifficulty";
 
 function App() {
   const [sudokuBoard, setSudokuBoard] = useState(EMPTY_BOARD);
@@ -26,24 +30,23 @@ function App() {
     GameStatusEnums.NOT_STARTED
   );
 
-  const gridRecords = useMemo(() => initGridRecords(), []);
-
-  const handleCheck = (check: number[]) => {
-    const number: any = {
-      "1": 1,
-      "2": 1,
-      "3": 1,
-      "4": 1,
-      "5": 1,
-      "6": 1,
-      "7": 1,
-      "8": 1,
-      "9": 1,
+  const { gridRecords, allCombinations } = useMemo(() => {
+    const records = initGridRecords();
+    const allCombinations = initAllCombinations(records);
+    return {
+      gridRecords: records,
+      allCombinations,
     };
+  }, []);
+
+  const handleCombinationCheck = (check: number[]) => {
+    const copyOneToNineInOne = { ...ONE_TO_NINE_IN_ONE };
     for (let i = 0; i < check.length; i++) {
-      if (number[`${check[i]}`]) {
-        number[`${check[i]}`]--;
-      } else if (number[`${check[i]}`] === 0) {
+      const intInString = check[i].toString() as oneToNineInOneType;
+
+      if (copyOneToNineInOne[intInString]) {
+        copyOneToNineInOne[intInString]--;
+      } else if (copyOneToNineInOne[intInString] === 0) {
         return false;
       }
     }
@@ -51,25 +54,17 @@ function App() {
   };
 
   const checkIfValid = (board: string[] = sudokuBoard) => {
-    const keys: string[] = Object.keys(gridRecords);
-    const values: number[][] = Object.values(gridRecords);
     const copyBoard = [...board];
 
     for (let i = 0; i < 27; i++) {
-      const checks: number[] = [];
-      for (let x = 0; x < values.length; x++) {
-        if (values[x].includes(i)) {
-          checks.push(Number(keys[x]));
+      const currentCombinationOfGridNumber: number[] = [];
+      for (let x = 0; x < copyBoard.length; x++) {
+        if (allCombinations[i].includes(x)) {
+          currentCombinationOfGridNumber.push(Number(copyBoard[x]));
         }
       }
 
-      const secondCheck: number[] = [];
-      for (let x = 0; x < copyBoard.length; x++) {
-        if (checks.includes(x)) {
-          secondCheck.push(Number(copyBoard[x]));
-        }
-      }
-      if (!handleCheck(secondCheck)) {
+      if (!handleCombinationCheck(currentCombinationOfGridNumber)) {
         return false;
       }
     }
@@ -82,62 +77,26 @@ function App() {
     }
   }, [sudokuBoard]);
 
-  const randomDrawNumber = (newArr: any, arr: any) => {
-    const oneToNine = { ...ONE_TO_NINE };
-    const allHave: number[] = [];
-    const first = newArr[arr[0]];
-    const second = newArr[arr[1]];
-    const third = newArr[arr[2]];
-
-    for (let i = 1; i < 10; i++) {
-      if (first.indexOf(i) !== -1) {
-        oneToNine[i.toString() as oneToNineType]++;
-      }
-      if (second.indexOf(i) !== -1) {
-        oneToNine[i.toString() as oneToNineType]++;
-      }
-
-      if (third.indexOf(i) !== -1) {
-        oneToNine[i.toString() as oneToNineType]++;
-      }
-
-      if (oneToNine[i.toString() as oneToNineType] === 3) {
-        allHave.push(i);
-      }
-    }
-    if (allHave.length === 0) {
-      return "";
-    }
-    const drawIndex = Math.floor(Math.random() * allHave.length);
-    return allHave[drawIndex];
-  };
-
   const generateSudoku = (play = false) => {
-    const sudokuRecords = new Array(27).fill(
-      // get an array of 1 to 9
-      [...Array(9)].map((_, index) => index + 1)
-    );
-
     const copySudokuBoard = [...sudokuBoard];
-
+    const copySudokuRecords = [...SUDOKU_RECORDS];
     for (let i = 0; i < 81; i++) {
       if (copySudokuBoard[i] === "") {
-        let deductArr = gridRecords[`${i}`];
-        let drawnNum: number | string = randomDrawNumber(
-          sudokuRecords,
-          deductArr
+        const getCombinationIndex = gridRecords[i.toString()];
+        const drawnNumber: string = drawNumber(
+          copySudokuRecords,
+          getCombinationIndex
         );
-        copySudokuBoard[i] = drawnNum.toString();
-        for (let x = 0; x < deductArr.length; x++) {
-          sudokuRecords[deductArr[x]] = sudokuRecords[deductArr[x]].filter(
-            (e: number) => {
-              return drawnNum !== e;
-            }
-          );
+        copySudokuBoard[i] = drawnNumber;
+        for (let x = 0; x < getCombinationIndex.length; x++) {
+          copySudokuRecords[getCombinationIndex[x]] = copySudokuRecords[
+            getCombinationIndex[x]
+          ].filter((record: number) => Number(drawnNumber) !== record);
         }
       }
     }
 
+    // if the sudoku board is not filled, generate again
     if (copySudokuBoard.some((grid) => grid === "")) {
       generateSudoku(play);
       return;
@@ -145,22 +104,24 @@ function App() {
 
     if (play) {
       setStoredPlaySudoku([...copySudokuBoard]);
-      const checkAllArr = new Array(27).fill(
-        [...Array(9)].map((_, index) => index + 1)
-      );
+
+      const copySudokuRecords = [...SUDOKU_RECORDS];
+
+      // base on the difficulty, empty out some of the grids
       for (let i = 0; i < copySudokuBoard.length; i++) {
-        let filterOut = Math.floor(Math.random() * 10);
-        if (filterOut < difficultyMapper(difficulty)) {
+        const filterIndexes = Math.floor(Math.random() * 10);
+        if (filterIndexes < difficultyMapper(difficulty)) {
           copySudokuBoard[i] = "";
-        } else {
-          let deductArray = gridRecords[`${i}`];
-          for (let x = 0; x < deductArray.length; x++) {
-            checkAllArr[deductArray[x]] = checkAllArr[deductArray[x]].filter(
-              (e: number) => {
-                return Number(e) !== Number(copySudokuBoard[i]);
-              }
-            );
-          }
+          continue;
+        }
+
+        const recordIndexes = gridRecords[i.toString()];
+        for (let x = 0; x < recordIndexes.length; x++) {
+          copySudokuRecords[recordIndexes[x]] = copySudokuRecords[
+            recordIndexes[x]
+          ].filter((e: number) => {
+            return Number(e) !== Number(copySudokuBoard[i]);
+          });
         }
       }
     }
@@ -196,7 +157,7 @@ function App() {
     [status]
   );
   return (
-    <div className="flex justify-center items-center my-10 flex-col container mx-auto">
+    <div className="flex justify-center items-center my-10 flex-col container mx-auto space-y-3">
       <div className="flex flex-col items-center">
         <h1 className="text-3xl font-bold">Sudoku</h1>
         <span
@@ -210,10 +171,9 @@ function App() {
           {gameStatueMessage}
         </span>
       </div>
+      <SelectDifficulty difficulty={difficulty} setDifficulty={setDifficulty} />
       <ButtonPanel
         data={{
-          difficulty,
-          setDifficulty,
           setGame,
           solveGame,
           gameStarted,

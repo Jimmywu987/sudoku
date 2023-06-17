@@ -1,4 +1,4 @@
-export const ONE_TO_NINE = {
+export const ONE_TO_NINE_IN_ZERO = {
   "1": 0,
   "2": 0,
   "3": 0,
@@ -8,4 +8,16 @@ export const ONE_TO_NINE = {
   "7": 0,
   "8": 0,
   "9": 0,
+};
+
+export const ONE_TO_NINE_IN_ONE = {
+  "1": 1,
+  "2": 1,
+  "3": 1,
+  "4": 1,
+  "5": 1,
+  "6": 1,
+  "7": 1,
+  "8": 1,
+  "9": 1,
 };
