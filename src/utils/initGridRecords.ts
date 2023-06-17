@@ -19,7 +19,7 @@ const getRecordThirdPosition = (index: number) => {
 
 export const initGridRecords = () => {
   const record: {
-    [key: string]: number[];
+    [key: string]: [number, number, number];
   } = {};
 
   for (let i = 0; i < 81; i++) {
